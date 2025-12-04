@@ -6,11 +6,10 @@ import matplotlib.pyplot as plt
 from io import BytesIO, StringIO
 import html
 
-st.set_page_config(page_title="2D Transform + Composite Matrix (Preview SVG + Matplotlib)", layout="wide")
+st.set_page_config(page_title="2D Transform + Composite Matrix", layout="wide")
 
-# ---------------------
+
 # Utility - matrices
-# ---------------------
 def translation(tx, ty):
     return np.array([[1, 0, tx],
                      [0, 1, ty],
@@ -50,9 +49,9 @@ def apply_matrix_to_points(pointsNx2, M):
     transformed = (M @ homo.T).T  # (N,3)
     return transformed[:, :2]
 
-# ---------------------
+
 # SVG generation
-# ---------------------
+
 def make_svg_preview(points_orig, points_transformed, width=360, height=360, padding=10):
     """
     returns SVG string showing original (blue) and transformed (orange) polygons/points.
@@ -113,12 +112,9 @@ def make_svg_preview(points_orig, points_transformed, width=360, height=360, pad
     svg_parts.append('</svg>')
     return "\n".join(svg_parts)
 
-# ---------------------
 # Streamlit UI
-# ---------------------
-st.title("2D Transformations (Homogeneous 3×3) — Preview SVG + Matplotlib")
-
-st.markdown("Aplikasi ini mendemonstrasikan translation, scaling, rotation, shearing, reflection sebagai matriks 3×3 (homogeneous). Preview cepat menggunakan SVG; visual lengkap menggunakan Matplotlib (grid & labels).")
+st.title("2D Transformations (Homogeneous 3×3)")
+st.markdown("This application demonstrates translation, scaling, rotation, shearing, and reflection using 3×3 homogeneous matrices. A quick preview is shown with SVG, while full visualization is provided through Matplotlib with grids and labels.")
 
 # Sidebar - points and transform
 st.sidebar.header("Points (enter as x,y ; x,y ; ...)")
@@ -131,7 +127,6 @@ try:
 except Exception as e:
     st.sidebar.error("Invalid points format. Use: x,y; x,y; ...")
     st.stop()
-
 st.sidebar.markdown("---")
 st.sidebar.header("Transformation to build (single)")
 choice = st.sidebar.selectbox("Transformation", ["Translation", "Scaling", "Rotation", "Shearing", "Reflection"])
@@ -167,15 +162,11 @@ st.sidebar.write(pd.DataFrame(st.session_state.composite))
 if st.sidebar.button("Add single transform to composite"):
     # Note: left-multiply to apply single then previous composite when using column vectors
     st.session_state.composite = T @ st.session_state.composite
-
 if st.sidebar.button("Reset composite"):
     st.session_state.composite = np.eye(3)
-
-# Apply transforms
 single_out = apply_matrix_to_points(pts, T)
 composite_out = apply_matrix_to_points(pts, st.session_state.composite)
 
-# Results table + download
 df = pd.DataFrame({
     "x_original": pts[:,0],
     "y_original": pts[:,1],
@@ -190,39 +181,30 @@ st.dataframe(df)
 csv_bytes = df.to_csv(index=False).encode()
 st.download_button("Download coordinates (CSV)", csv_bytes, file_name="transform_results.csv")
 
-# Layout previews
 col_svg, col_plot = st.columns([1, 1])
 
 with col_svg:
     st.subheader("Quick SVG Preview")
     svg = make_svg_preview(pts, composite_out, width=420, height=420)
-    # st.markdown supports raw svg if allow_html; better to use components.html to avoid escaping
     st.components.v1.html(svg, height=440)
-
 with col_plot:
     st.subheader("Matplotlib visualization (grid & labels)")
     fig, ax = plt.subplots(figsize=(6,6))
-    # draw grid lines
-    # choose bounds based on combined points
     allpts = np.vstack([pts, composite_out])
     xmin, ymin = allpts.min(axis=0) - 1
     xmax, ymax = allpts.max(axis=0) + 1
-    # nice symmetric bounds
+
     xpad = max(1, (xmax - xmin) * 0.1)
     ypad = max(1, (ymax - ymin) * 0.1)
     ax.set_xlim(xmin - xpad, xmax + xpad)
     ax.set_ylim(ymin - ypad, ymax + ypad)
     ax.set_aspect("equal", adjustable="box")
 
-    # grid
     ax.grid(True, which='major', linestyle='--', alpha=0.5)
 
-    # plot original polygon/points
     ax.plot(pts[:,0], pts[:,1], marker='o', color='tab:blue', label='Original')
     for i,p in enumerate(pts):
         ax.text(p[0]+0.05, p[1]+0.05, f"P{i}", color='tab:blue', fontsize=9)
-
-    # plot single transform (optional faint)
     show_single = st.checkbox("Show single transform result (faint)", value=False)
     if show_single:
         ax.plot(single_out[:,0], single_out[:,1], marker='s', linestyle=':', color='tab:green', label='Single transform (dotted)')
@@ -233,8 +215,6 @@ with col_plot:
     ax.plot(composite_out[:,0], composite_out[:,1], marker='o', linestyle='-', color='tab:orange', label='Composite')
     for i,p in enumerate(composite_out):
         ax.text(p[0]+0.05, p[1]+0.05, f"P{i}\'", color='tab:orange', fontsize=9)
-
     ax.legend()
     st.pyplot(fig)
-
 st.caption("SVG preview is intentionally lightweight (instant). Matplotlib provides a richer plot with grid and labels for analysis.")
